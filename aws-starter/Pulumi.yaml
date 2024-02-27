@@ -1,0 +1,10 @@
+name: aws-starter
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: A project to start N spot instances
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: aws-python
