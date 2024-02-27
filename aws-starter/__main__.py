@@ -4,19 +4,20 @@ from pathlib import Path
 
 import pulumi_aws as aws
 import importlib.resources as pkg_resources
-from pulumi import Output, export, ResourceOptions
+from pulumi import Output, export, ResourceOptions, Config
 import resources
 from config import ConfigGenerator
 from pulumi_command.remote import ConnectionArgs, Command, CopyFile
 
 # change as required. A key_name is required.
-instance_type = "m6i.xlarge"
-number_instances = 3
+instance_type = "c7gd.2xlarge"
+number_instances = 8
 key_name = "dalem"
 # will need to be changed pending region and architecture. Use ubuntu.
-ami = "ami-0c7217cdde317cfec"
+ami = "ami-05d47d29a4c2d19e1"
 # override if needed
 private_key = Path(os.path.expanduser("~/.ssh/id_rsa")).read_text()
+availability_zone = Config("1trc").get("aws_zone")
 
 # Create a new VPC
 vpc = aws.ec2.Vpc("1trc-vpc", cidr_block="10.0.0.0/16", enable_dns_support=True, enable_dns_hostnames=True,
@@ -26,7 +27,7 @@ subnet = aws.ec2.Subnet(f"1trc-subnet", vpc_id=vpc.id,
                         cidr_block="10.0.0.0/16",
                         tags={
                             "Name": f"1trc-subnet",
-                        })
+                        }, availability_zone=availability_zone)
 
 internet_gateway = aws.ec2.InternetGateway(f"gw-1trc",
                                            vpc_id=vpc.id,
@@ -94,7 +95,7 @@ for index in range(number_instances):
                                      user_data=pkg_resources.read_text(resources, "install_clickhouse.sh"),
                                      tags={
                                          "Name": f"1trc-spot-instance-{index}",
-                                     })
+                                     }, availability_zone=availability_zone)
     spot_instances.append(spot_instance)
 
 
@@ -109,7 +110,7 @@ def file_hash(filename):
 def configure_hosts(private_ips, public_ips):
     # generate host files
     gen = ConfigGenerator(number_instances)
-    for i in range(0, len(private_ips)):
+    for i in range(0, number_instances):
         file_path = gen.generate_host_file(i, private_ips)
         connection = ConnectionArgs(host=public_ips[i], user="ubuntu",
                                     private_key=private_key)

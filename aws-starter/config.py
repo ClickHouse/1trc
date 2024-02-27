@@ -12,7 +12,9 @@ class ConfigGenerator:
         self._num_nodes = num_nodes
 
     def generate_host_file(self, node_num, private_ips):
-        hosts_filename = os.path.join(config_dir, f"node_{node_num}", f"hosts")
+        node_path = os.path.join(config_dir, f"node_{node_num}")
+        os.makedirs(node_path, exist_ok=True)
+        hosts_filename = os.path.join(node_path, f"hosts")
         with open(hosts_filename, "w") as hosts_file:
             hosts_file.write(f"127.0.0.1 1trc-node-{node_num}.localdomain 1trc-node-{node_num}\n")
             for i, ip in enumerate(private_ips):
