@@ -55,6 +55,7 @@ class ConfigGenerator:
         replicas = "\n".join(
             f"<replica><port>9000</port><host>1trc-node-{i}</host><password>{password}</password></replica>" for i in range(self._num_nodes))
         # config keeper for only the 1st 3 nodes
+        raft_configuration = ""
         if node_num < 3:
             raft_configuration = "\n".join(f"<server><id>{i}</id><hostname>1trc-node-{i}</hostname>"
                                            f"<port>9234</port></server>" for i in range(min(self._num_nodes, 3)))
