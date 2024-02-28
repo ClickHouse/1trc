@@ -10,10 +10,12 @@ from config import ConfigGenerator
 from pulumi_command.remote import ConnectionArgs, Command, CopyFile
 
 # change as required. A key_name is required.
-instance_type = "c7gd.2xlarge"
-number_instances = 8
+instance_type = "c7g.2xlarge"
+number_instances = 32
 key_name = "dalem"
 # will need to be changed pending region and architecture. Use ubuntu.
+# ami = "ami-0c7217cdde317cfec"
+# arm ami
 ami = "ami-05d47d29a4c2d19e1"
 # override if needed
 private_key = Path(os.path.expanduser("~/.ssh/id_rsa")).read_text()
@@ -149,3 +151,18 @@ Output.all([*[instance.private_ip for instance in spot_instances]],
 
 export("instance_ids", Output.all(*[instance.id for instance in spot_instances]))
 export("instance_public_ips", Output.all(*[instance.public_ip for instance in spot_instances]))
+
+# run this and check number of instances
+"""
+SELECT *
+FROM clusterAllReplicas('default', view(
+    SELECT
+        hostname() AS server,
+        uptime() AS uptime
+    FROM system.one
+))
+ORDER BY server ASC
+SETTINGS skip_unavailable_shards = 1
+
+
+"""

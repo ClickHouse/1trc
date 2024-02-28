@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <users>
+        <default>
+            <access_management>1</access_management>
+            <password remove='1' />
+            <password_sha256_hex>b80c1acd7d73184e13f1ce364a2d652ff48f7200fe6368e4498d56768c04ea40</password_sha256_hex>
+        </default>
+    </users>
+</clickhouse>
