@@ -1,7 +1,7 @@
 import hashlib
 import os
 from pathlib import Path
-
+from requests import get
 import pulumi_aws as aws
 import importlib.resources as pkg_resources
 from pulumi import Output, export, ResourceOptions, Config
@@ -13,11 +13,12 @@ from pulumi_command.remote import ConnectionArgs, Command, CopyFile
 private_key = Path(os.path.expanduser("~/.ssh/id_rsa")).read_text()
 availability_zone = Config("1trc").get("aws_zone")
 instance_type = Config("1trc").get("instance_type")
-number_instances = Config("1trc").get("number_instances")
+number_instances = Config("1trc").get_int("number_instances")
 key_name = Config("1trc").get("key_name")
 password = Config("1trc").get("cluster_password")
 ami = Config("1trc").get("ami")
-
+# as seen by public service, needed for security group
+public_ip = get('https://api.ipify.org').text
 # Create a new VPC
 vpc = aws.ec2.Vpc("1trc-vpc", cidr_block="10.0.0.0/16", enable_dns_support=True, enable_dns_hostnames=True,
                   tags={"Name": "1trc-vpc"})
@@ -51,27 +52,34 @@ aws.ec2.RouteTableAssociation(f"1trc-internet-route-association",
                               subnet_id=subnet.id,
                               route_table_id=internet_route.id)
 
-# Create a security group allowing SSH access from anywhere
+# Create a security group allowing communication between nodes and outbound traffic
 security_group = aws.ec2.SecurityGroup("my-1trc-security-group",
                                        vpc_id=vpc.id,
-                                       ingress=[{"protocol": "tcp", "from_port": 22, "to_port": 22,
-                                                 "cidr_blocks": ["0.0.0.0/0"]},
-                                                aws.ec2.SecurityGroupIngressArgs(
-                                                    description="Client Traffic to Clickhouse",
-                                                    from_port=0, to_port=65535, protocol="tcp",
-                                                    cidr_blocks=[vpc.cidr_block],
-                                                )],
+                                       ingress=[aws.ec2.SecurityGroupIngressArgs(
+                                                 description="SSH inbound",
+                                                 from_port=22, to_port=22, protocol="tcp",
+                                                 cidr_blocks=[f"{public_ip}/32"],
+                                             ),
+                                            aws.ec2.SecurityGroupIngressArgs(
+                                                 description="ClickHouse HTTP",
+                                                 from_port=8123, to_port=8123, protocol="tcp",
+                                                 cidr_blocks=[f"{public_ip}/32"],
+                                             ),
+                                             aws.ec2.SecurityGroupIngressArgs(
+                                                 description="Client Traffic to Clickhouse",
+                                                 from_port=0, to_port=65535, protocol="tcp",
+                                                 cidr_blocks=[vpc.cidr_block],
+                                             )],
                                        egress=[
-                                           aws.ec2.SecurityGroupIngressArgs(
-                                               description="All outbound traffic",
-                                               from_port=0, to_port=0, protocol="-1",
-                                               cidr_blocks=["0.0.0.0/0"], ipv6_cidr_blocks=["::/0"],
-                                           )
-                                       ],
+                                                 aws.ec2.SecurityGroupIngressArgs(
+                                                     description="All outbound traffic",
+                                                     from_port=0, to_port=0, protocol="-1",
+                                                     cidr_blocks=["0.0.0.0/0"], ipv6_cidr_blocks=["::/0"],
+                                                 )
+                                             ],
                                        tags={
-                                           "Name": "my-1trc-security-group",
-                                       })
-
+                                                 "Name": "my-1trc-security-group",
+                                             })
 # Create spot instances
 spot_instances = []
 for index in range(number_instances):
@@ -147,7 +155,7 @@ def configure_hosts(private_ips, public_ips):
                                     remote_path=f"/tmp/{user_config_filename}",
                                     triggers=[user_config_hash])
         set_user_config = Command(f"set_node_{i}_user_config", connection=connection,
-                                  create=f"sudo mv /tmp/{user_config_filename} /etc/clickhouse-server/config.d/{user_config_filename}",
+                                  create=f"sudo mv /tmp/{user_config_filename} /etc/clickhouse-server/users.d/{user_config_filename}",
                                   opts=ResourceOptions(depends_on=user_config_copy),
                                   triggers=[user_config_hash])
         # restart clickhouse - restart as maybe running

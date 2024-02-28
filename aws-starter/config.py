@@ -1,9 +1,6 @@
 import hashlib
-from xml.etree.ElementTree import Element, SubElement
 import os
-from xml.dom import minidom
-from xml.etree.ElementTree import tostring
-
+from lxml import etree
 config_dir = "./tmp"
 
 
@@ -11,6 +8,12 @@ class ConfigGenerator:
 
     def __init__(self, num_nodes):
         self._num_nodes = num_nodes
+
+    @classmethod
+    def prettify(cls, xml_str):
+        parser = etree.XMLParser(remove_blank_text=True)
+        elem = etree.XML(xml_str, parser=parser)
+        return etree.tostring(elem, pretty_print=True, xml_declaration=True, encoding="UTF-8").decode("utf-8")
 
     def generate_host_file(self, node_num, private_ips):
         node_path = os.path.join(config_dir, f"node_{node_num}")
@@ -31,7 +34,7 @@ class ConfigGenerator:
         filename = os.path.join(config_dir, "user_settings.xml")
         with open(filename, "w") as user_settings_file:
             hex_password = self._generate_sha256_hex(password)
-            user_settings_file.write(f"""<?xml version="1.0"?>
+            config = f"""<?xml version="1.0"?>
             <clickhouse>
                 <users>
                     <default>
@@ -40,7 +43,8 @@ class ConfigGenerator:
                         <password_sha256_hex>{hex_password}</password_sha256_hex>
                     </default>
                 </users>
-            </clickhouse>""")
+            </clickhouse>"""
+            user_settings_file.write(ConfigGenerator.prettify(config))
         return filename
 
     def generate_server_configuration(self, node_num):
@@ -59,9 +63,7 @@ class ConfigGenerator:
                             else f"<node><index>1</index><host>1trc-node-{node_id}</host></node>" for i in
                             range(min(self._num_nodes, 3)))
         with open(node_filename, "w") as node_file:
-            node_file.write(f"""
-                <?xml version="1.0" ?>
-                <clickhouse>
+            config = f"""<clickhouse>
                     <listen_host>::</listen_host>
                     <listen_host>0.0.0.0</listen_host>
                     <listen_try>1</listen_try>
@@ -90,6 +92,6 @@ class ConfigGenerator:
                     <zookeeper>
                         {keepers}
                     </zookeeper>
-                </clickhouse>
-            """)
+                </clickhouse>"""
+            node_file.write(ConfigGenerator.prettify(config))
         return node_filename
