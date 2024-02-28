@@ -153,6 +153,7 @@ def configure_hosts(private_ips, public_ips):
         user_config_copy = CopyFile(f"copy_node_{i}_user_config", connection=connection,
                                     local_path=user_config_file,
                                     remote_path=f"/tmp/{user_config_filename}",
+                                    opts=ResourceOptions(depends_on=set_hostname),
                                     triggers=[user_config_hash])
         set_user_config = Command(f"set_node_{i}_user_config", connection=connection,
                                   create=f"sudo mv /tmp/{user_config_filename} /etc/clickhouse-server/users.d/{user_config_filename}",
