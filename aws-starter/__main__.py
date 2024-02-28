@@ -1,6 +1,8 @@
 import hashlib
 import os
 from pathlib import Path
+
+import clickhouse_connect
 from requests import get
 import pulumi_aws as aws
 import importlib.resources as pkg_resources
@@ -8,6 +10,8 @@ from pulumi import Output, export, ResourceOptions, Config
 import resources
 from config import ConfigGenerator
 from pulumi_command.remote import ConnectionArgs, Command, CopyFile
+
+from query import ClickHouseQuery
 
 # override if needed
 private_key = Path(os.path.expanduser("~/.ssh/id_rsa")).read_text()
@@ -56,30 +60,30 @@ aws.ec2.RouteTableAssociation(f"1trc-internet-route-association",
 security_group = aws.ec2.SecurityGroup("my-1trc-security-group",
                                        vpc_id=vpc.id,
                                        ingress=[aws.ec2.SecurityGroupIngressArgs(
-                                                 description="SSH inbound",
-                                                 from_port=22, to_port=22, protocol="tcp",
-                                                 cidr_blocks=[f"{public_ip}/32"],
-                                             ),
-                                            aws.ec2.SecurityGroupIngressArgs(
-                                                 description="ClickHouse HTTP",
-                                                 from_port=8123, to_port=8123, protocol="tcp",
-                                                 cidr_blocks=[f"{public_ip}/32"],
-                                             ),
-                                             aws.ec2.SecurityGroupIngressArgs(
-                                                 description="Client Traffic to Clickhouse",
-                                                 from_port=0, to_port=65535, protocol="tcp",
-                                                 cidr_blocks=[vpc.cidr_block],
-                                             )],
+                                           description="SSH inbound",
+                                           from_port=22, to_port=22, protocol="tcp",
+                                           cidr_blocks=[f"{public_ip}/32"],
+                                       ),
+                                           aws.ec2.SecurityGroupIngressArgs(
+                                               description="ClickHouse HTTP",
+                                               from_port=8123, to_port=8123, protocol="tcp",
+                                               cidr_blocks=[f"{public_ip}/32"],
+                                           ),
+                                           aws.ec2.SecurityGroupIngressArgs(
+                                               description="Client Traffic to Clickhouse",
+                                               from_port=0, to_port=65535, protocol="tcp",
+                                               cidr_blocks=[vpc.cidr_block],
+                                           )],
                                        egress=[
-                                                 aws.ec2.SecurityGroupIngressArgs(
-                                                     description="All outbound traffic",
-                                                     from_port=0, to_port=0, protocol="-1",
-                                                     cidr_blocks=["0.0.0.0/0"], ipv6_cidr_blocks=["::/0"],
-                                                 )
-                                             ],
+                                           aws.ec2.SecurityGroupIngressArgs(
+                                               description="All outbound traffic",
+                                               from_port=0, to_port=0, protocol="-1",
+                                               cidr_blocks=["0.0.0.0/0"], ipv6_cidr_blocks=["::/0"],
+                                           )
+                                       ],
                                        tags={
-                                                 "Name": "my-1trc-security-group",
-                                             })
+                                           "Name": "my-1trc-security-group",
+                                       })
 # Create spot instances
 spot_instances = []
 for index in range(number_instances):
@@ -120,6 +124,7 @@ def configure_hosts(private_ips, public_ips):
     user_config_file = gen.generate_user_config(password)
     user_config_filename = os.path.basename(user_config_file)
     user_config_hash = file_hash(user_config_file)
+    instances_ready = []
     for i in range(0, number_instances):
         file_path = gen.generate_host_file(i, private_ips)
         connection = ConnectionArgs(host=public_ips[i], user="ubuntu",
@@ -160,30 +165,24 @@ def configure_hosts(private_ips, public_ips):
                                   opts=ResourceOptions(depends_on=user_config_copy),
                                   triggers=[user_config_hash])
         # restart clickhouse - restart as maybe running
-        Command(f"restart_node_{i}_clickhouse", connection=connection,
-                create=f"sudo clickhouse restart",
-                opts=ResourceOptions(depends_on=[set_clickhouse_config, set_user_config]),
-                triggers=[config_hash, user_config_hash])
+        instances_ready.append(Command(f"restart_node_{i}_clickhouse", connection=connection,
+                                       create=f"sudo clickhouse restart",
+                                       opts=ResourceOptions(depends_on=[set_clickhouse_config, set_user_config]),
+                                       triggers=[config_hash, user_config_hash]).stdout)
+    return instances_ready
 
 
 # generate the host file based on the private ips
-Output.all([*[instance.private_ip for instance in spot_instances]],
-           [*[instance.public_ip for instance in spot_instances]]).apply(lambda args: configure_hosts(args[0], args[1]))
+ready_instances = Output.all([*[instance.private_ip for instance in spot_instances]],
+                             [*[instance.public_ip for instance in spot_instances]]).apply(
+    lambda args: configure_hosts(args[0], args[1]))
 
 export("instance_ids", Output.all(*[instance.id for instance in spot_instances]))
 export("instance_public_ips", Output.all(*[instance.public_ip for instance in spot_instances]))
 
-# run this and check number of instances
-"""
-SELECT *
-FROM clusterAllReplicas('default', view(
-    SELECT
-        hostname() AS server,
-        uptime() AS uptime
-    FROM system.one
-))
-ORDER BY server ASC
-SETTINGS skip_unavailable_shards = 1
+Output.all(spot_instances[0].public_ip, ready_instances).apply(
+    lambda args: ClickHouseQuery("1trc-clickhouse-query", ip_address=args[0],
+                                 number_instances=number_instances,
+                                 password=password,
+                                 max_timeout=60))
 
-
-"""
