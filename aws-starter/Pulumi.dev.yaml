@@ -1,8 +1,8 @@
 config:
   aws:region: us-east-1
   1trc:aws_zone: us-east-1d
-  1trc:instance_type: "c7g.2xlarge"
-  1trc:number_instances: 3
+  1trc:instance_type: "c7g.8xlarge"
+  1trc:number_instances: 8
   # this must exist as a key-pair in AWS
   1trc:key_name: "dalem"
   # change

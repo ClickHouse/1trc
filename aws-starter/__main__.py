@@ -191,7 +191,7 @@ Output.all(spot_instances[0].public_ip, ready_instances).apply(
                                  max_timeout=60, query=f"""
                                  SELECT station, min(measure), max(measure), round(avg(measure), 2) 
                                  FROM s3Cluster('default',
-                                 'https://clickhouse-1trc.s3.us-east-1.amazonaws.com/1trc/measurements-10*.parquet', 
+                                 'https://clickhouse-1trc.s3.us-east-1.amazonaws.com/1trc/measurements-*.parquet', 
                                  '{current_credentials.access_key}', '{current_credentials.secret_key}') 
                                  GROUP BY station ORDER BY station ASC 
                                  SETTINGS max_download_buffer_size = 52428800, max_threads=32
