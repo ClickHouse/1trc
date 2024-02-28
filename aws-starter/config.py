@@ -26,14 +26,15 @@ class ConfigGenerator:
                     f"{ip} 1trc-node-{i}.localdomain 1trc-node-{i}\n")
         return hosts_filename
 
-    def _generate_sha256_hex(self, input_string):
+    @classmethod
+    def _generate_sha256_hex(cls, input_string):
         sha256_hash = hashlib.sha256(input_string.encode()).hexdigest()
         return sha256_hash
 
     def generate_user_config(self, password):
         filename = os.path.join(config_dir, "user_settings.xml")
         with open(filename, "w") as user_settings_file:
-            hex_password = self._generate_sha256_hex(password)
+            hex_password = ConfigGenerator._generate_sha256_hex(password)
             config = f"""<?xml version="1.0"?>
             <clickhouse>
                 <users>
@@ -47,12 +48,12 @@ class ConfigGenerator:
             user_settings_file.write(ConfigGenerator.prettify(config))
         return filename
 
-    def generate_server_configuration(self, node_num):
+    def generate_server_configuration(self, node_num, password):
         node_dir = os.path.join(config_dir, f"node_{node_num}")
         os.makedirs(node_dir, exist_ok=True)
         node_filename = os.path.join(node_dir, f"1trc_node_{node_num}.xml")
         replicas = "\n".join(
-            f"<replica><port>9000</port><host>1trc-node-{i}</host></replica>" for i in range(self._num_nodes))
+            f"<replica><port>9000</port><host>1trc-node-{i}</host><password>{password}</password></replica>" for i in range(self._num_nodes))
         # config keeper for only the 1st 3 nodes
         if node_num < 3:
             raft_configuration = "\n".join(f"<server><id>{i}</id><hostname>1trc-node-{i}</hostname>"

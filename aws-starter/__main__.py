@@ -137,7 +137,7 @@ def configure_hosts(private_ips, public_ips):
                                create=f"sudo hostnamectl set-hostname 1trc-node-{i}.localdomain",
                                opts=ResourceOptions(depends_on=set_host_file))
         # copy config for clickhouse
-        config_file = gen.generate_server_configuration(i)
+        config_file = gen.generate_server_configuration(i, password)
         config_hash = file_hash(file_path)
         filename = os.path.basename(config_file)
         clickhouse_file = CopyFile(f"copy_node_{i}_clickhouse_config", connection=connection,
