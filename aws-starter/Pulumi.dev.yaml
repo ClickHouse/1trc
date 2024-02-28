@@ -1,3 +1,13 @@
 config:
   aws:region: us-east-1
   1trc:aws_zone: us-east-1d
+  1trc:instance_type: "c7g.2xlarge"
+  1trc:number_instances: 3
+  # this must exist as a key-pair in AWS
+  1trc:key_name: "dalem"
+  # change
+  1trc:cluster_password: "clickhouse_admin"
+  # AMD ami (us-east-1)
+  1trc:ami: "ami-05d47d29a4c2d19e1"
+  # Intel AMI (us-east-1)
+  # 1trc:ami: "ami-0c7217cdde317cfec"

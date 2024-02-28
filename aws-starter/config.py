@@ -23,11 +23,27 @@ class ConfigGenerator:
                     f"{ip} 1trc-node-{i}.localdomain 1trc-node-{i}\n")
         return hosts_filename
 
-    def _generate_sha256_hex(input_string):
+    def _generate_sha256_hex(self, input_string):
         sha256_hash = hashlib.sha256(input_string.encode()).hexdigest()
         return sha256_hash
 
-    def generate_clickhouse_configuration(self, node_num):
+    def generate_user_config(self, password):
+        filename = os.path.join(config_dir, "user_settings.xml")
+        with open(filename, "w") as user_settings_file:
+            hex_password = self._generate_sha256_hex(password)
+            user_settings_file.write(f"""<?xml version="1.0"?>
+            <clickhouse>
+                <users>
+                    <default>
+                        <access_management>1</access_management>
+                        <password remove='1' />
+                        <password_sha256_hex>{hex_password}</password_sha256_hex>
+                    </default>
+                </users>
+            </clickhouse>""")
+        return filename
+
+    def generate_server_configuration(self, node_num):
         node_dir = os.path.join(config_dir, f"node_{node_num}")
         os.makedirs(node_dir, exist_ok=True)
         node_filename = os.path.join(node_dir, f"1trc_node_{node_num}.xml")

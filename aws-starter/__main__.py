@@ -9,17 +9,14 @@ import resources
 from config import ConfigGenerator
 from pulumi_command.remote import ConnectionArgs, Command, CopyFile
 
-# change as required. A key_name is required.
-instance_type = "c7g.2xlarge"
-number_instances = 32
-key_name = "dalem"
-# will need to be changed pending region and architecture. Use ubuntu.
-# ami = "ami-0c7217cdde317cfec"
-# arm ami
-ami = "ami-05d47d29a4c2d19e1"
 # override if needed
 private_key = Path(os.path.expanduser("~/.ssh/id_rsa")).read_text()
 availability_zone = Config("1trc").get("aws_zone")
+instance_type = Config("1trc").get("instance_type")
+number_instances = Config("1trc").get("number_instances")
+key_name = Config("1trc").get("key_name")
+password = Config("1trc").get("cluster_password")
+ami = Config("1trc").get("ami")
 
 # Create a new VPC
 vpc = aws.ec2.Vpc("1trc-vpc", cidr_block="10.0.0.0/16", enable_dns_support=True, enable_dns_hostnames=True,
@@ -127,7 +124,7 @@ def configure_hosts(private_ips, public_ips):
                 create=f"sudo mv /tmp/hosts /etc/hosts", opts=ResourceOptions(depends_on=copy_host_file),
                 triggers=[host_hash])
         # copy config for clickhouse
-        config_file = gen.generate_clickhouse_configuration(i)
+        config_file = gen.generate_server_configuration(i)
         config_hash = file_hash(file_path)
         filename = os.path.basename(config_file)
         clickhouse_file = CopyFile(f"copy_node_{i}_clickhouse_config", connection=connection,
