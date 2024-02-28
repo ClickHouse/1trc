@@ -109,20 +109,25 @@ def file_hash(filename):
 def configure_hosts(private_ips, public_ips):
     # generate host files
     gen = ConfigGenerator(number_instances)
+    user_config_file = gen.generate_user_config(password)
+    user_config_filename = os.path.basename(user_config_file)
+    user_config_hash = file_hash(user_config_file)
     for i in range(0, number_instances):
         file_path = gen.generate_host_file(i, private_ips)
         connection = ConnectionArgs(host=public_ips[i], user="ubuntu",
                                     private_key=private_key)
         # copy host files - hash allows more nodes to be added
         host_hash = file_hash(file_path)
-        set_hostname = Command(f"set_node_{i}_hostname", connection=connection,
-                               create=f"sudo hostnamectl set-hostname 1trc-node-{i}.localdomain")
         copy_host_file = CopyFile(f"copy_node_{i}_host_file", connection=connection,
                                   local_path=file_path, remote_path="/tmp/hosts",
-                                  opts=ResourceOptions(depends_on=set_hostname), triggers=[host_hash])
-        Command(f"set_{i}_host_file", connection=connection,
-                create=f"sudo mv /tmp/hosts /etc/hosts", opts=ResourceOptions(depends_on=copy_host_file),
-                triggers=[host_hash])
+                                  triggers=[host_hash])
+        set_host_file = Command(f"set_{i}_host_file", connection=connection,
+                                create=f"sudo mv /tmp/hosts /etc/hosts",
+                                opts=ResourceOptions(depends_on=copy_host_file),
+                                triggers=[host_hash])
+        set_hostname = Command(f"set_node_{i}_hostname", connection=connection,
+                               create=f"sudo hostnamectl set-hostname 1trc-node-{i}.localdomain",
+                               opts=ResourceOptions(depends_on=set_host_file))
         # copy config for clickhouse
         config_file = gen.generate_server_configuration(i)
         config_hash = file_hash(file_path)
@@ -131,15 +136,25 @@ def configure_hosts(private_ips, public_ips):
                                    local_path=config_file,
                                    remote_path=f"/tmp/{filename}",
                                    # we use a hash to detect if we need to re-copy the file
-                                   opts=ResourceOptions(depends_on=copy_host_file), triggers=[config_hash])
+                                   opts=ResourceOptions(depends_on=set_hostname), triggers=[config_hash])
         set_clickhouse_config = Command(f"set_node_{i}_clickhouse_config", connection=connection,
                                         create=f"sudo mv /tmp/{filename} /etc/clickhouse-server/config.d/{filename}",
                                         opts=ResourceOptions(depends_on=clickhouse_file),
                                         triggers=[config_hash])
+        # copy user config file
+        user_config_copy = CopyFile(f"copy_node_{i}_user_config", connection=connection,
+                                    local_path=user_config_file,
+                                    remote_path=f"/tmp/{user_config_filename}",
+                                    triggers=[user_config_hash])
+        set_user_config = Command(f"set_node_{i}_user_config", connection=connection,
+                                  create=f"sudo mv /tmp/{user_config_filename} /etc/clickhouse-server/config.d/{user_config_filename}",
+                                  opts=ResourceOptions(depends_on=user_config_copy),
+                                  triggers=[user_config_hash])
         # restart clickhouse - restart as maybe running
         Command(f"restart_node_{i}_clickhouse", connection=connection,
                 create=f"sudo clickhouse restart",
-                opts=ResourceOptions(depends_on=set_clickhouse_config), triggers=[config_hash])
+                opts=ResourceOptions(depends_on=[set_clickhouse_config, set_user_config]),
+                triggers=[config_hash, user_config_hash])
 
 
 # generate the host file based on the private ips
