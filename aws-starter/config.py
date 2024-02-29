@@ -1,6 +1,7 @@
 import hashlib
 import os
 from lxml import etree
+
 config_dir = "./tmp"
 
 
@@ -53,12 +54,25 @@ class ConfigGenerator:
         os.makedirs(node_dir, exist_ok=True)
         node_filename = os.path.join(node_dir, f"1trc_node_{node_num}.xml")
         replicas = "\n".join(
-            f"<replica><port>9000</port><host>1trc-node-{i}</host><password>{password}</password></replica>" for i in range(self._num_nodes))
+            f"<replica><port>9000</port><host>1trc-node-{i}</host><password>{password}</password></replica>" for i in
+            range(self._num_nodes))
         # config keeper for only the 1st 3 nodes
-        raft_configuration = ""
+        raft_config = ""
         if node_num < 3:
             raft_configuration = "\n".join(f"<server><id>{i}</id><hostname>1trc-node-{i}</hostname>"
                                            f"<port>9234</port></server>" for i in range(min(self._num_nodes, 3)))
+            raft_config = f"""<keeper_server>
+                        <tcp_port>2181</tcp_port>
+                        <server_id>{node_num}</server_id>
+                        <coordination_settings>
+                            <operation_timeout_ms>10000</operation_timeout_ms>
+                            <session_timeout_ms>30000</session_timeout_ms>
+                        </coordination_settings>
+                        <raft_configuration>
+                            {raft_configuration}
+                        </raft_configuration>
+                    </keeper_server>"""
+
         # every node needs ref to keeper
         node_id = 1 if node_num > 3 else 2
         keepers = "\n".join(f"<node><index>1</index><host>1trc-node-{i}</host></node>" if node_num == i
@@ -80,17 +94,7 @@ class ConfigGenerator:
                             </shard>
                         </default>
                     </remote_servers>
-                    <keeper_server>
-                        <tcp_port>2181</tcp_port>
-                        <server_id>{node_num}</server_id>
-                        <coordination_settings>
-                            <operation_timeout_ms>10000</operation_timeout_ms>
-                            <session_timeout_ms>30000</session_timeout_ms>
-                        </coordination_settings>
-                        <raft_configuration>
-                            {raft_configuration}
-                        </raft_configuration>
-                    </keeper_server>
+                    {raft_config}
                     <zookeeper>
                         {keepers}
                     </zookeeper>

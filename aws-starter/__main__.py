@@ -2,7 +2,6 @@ import hashlib
 import os
 from pathlib import Path
 
-import boto3
 from requests import get
 import pulumi_aws as aws
 import importlib.resources as pkg_resources
@@ -21,12 +20,14 @@ number_instances = Config("1trc").get_int("number_instances")
 key_name = Config("1trc").get("key_name")
 password = Config("1trc").get("cluster_password")
 ami = Config("1trc").get("ami")
+query = Config("1trc").get("query")
 # as seen by public service, needed for security group
 public_ip = get('https://api.ipify.org').text
 # Create a new VPC
 vpc = aws.ec2.Vpc("1trc-vpc", cidr_block="10.0.0.0/16", enable_dns_support=True, enable_dns_hostnames=True,
                   tags={"Name": "1trc-vpc"})
 
+# TODO: allow multiple availability zones,
 subnet = aws.ec2.Subnet(f"1trc-subnet", vpc_id=vpc.id,
                         cidr_block="10.0.0.0/16",
                         tags={
@@ -180,20 +181,9 @@ ready_instances = Output.all([*[instance.private_ip for instance in spot_instanc
 export("instance_ids", Output.all(*[instance.id for instance in spot_instances]))
 export("instance_public_ips", Output.all(*[instance.public_ip for instance in spot_instances]))
 
-# once our infra is ready we run the query as a pulumi resource
-session = boto3.Session()
-credentials = session.get_credentials()
-current_credentials = credentials.get_frozen_credentials()
 Output.all(spot_instances[0].public_ip, ready_instances).apply(
     lambda args: ClickHouseQuery("1trc-clickhouse-query", ip_address=args[0],
                                  number_instances=number_instances,
                                  password=password,
-                                 max_timeout=60, query=f"""
-                                 SELECT station, min(measure), max(measure), round(avg(measure), 2) 
-                                 FROM s3Cluster('default',
-                                 'https://clickhouse-1trc.s3.us-east-1.amazonaws.com/1trc/measurements-*.parquet', 
-                                 '{current_credentials.access_key}', '{current_credentials.secret_key}') 
-                                 GROUP BY station ORDER BY station ASC 
-                                 SETTINGS max_download_buffer_size = 52428800, max_threads=32
-                                 """))
+                                 max_timeout=60, query=query))
 
