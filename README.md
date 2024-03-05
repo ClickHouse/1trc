@@ -6,9 +6,9 @@ Query trillion row datasets in Object Storage for a few cents using ClickHouse.
 
 We aim to test the cost efficiency and performance of ClickHouse in querying files in object storage.
 
-To this end, this repository contains Pulumi code to deploy a ClickHouse cluster in a Cloud provider of a specified instance type, run a configured query against object storage and shut the cluster down. The objective is to ensure this cost is as low as possible. In most cases (assuming pricing is linear), this should also mean faster queries.
+To this end, this repository contains Pulumi code to deploy a ClickHouse cluster in Cloud providers of a specified instance type, run a configured query against object storage, and shut the cluster down. The objective is to ensure this cost is as low as possible. In most cases (assuming pricing is linear), this should also mean faster queries.
 
-For each cloud provider the approach can differ e.g. for AWS, we use spot instances. 
+For each cloud provider, the approach can differ, e.g., for AWS, we use spot instances. 
 
 ## Cloud providers
 
@@ -36,6 +36,6 @@ For an example, see [ClickHouse and The One Trillion Row Challenge](https://clic
 
 ## Contributing
 
-Contributions are welcome to improve the code for a provider. This can include making providers more flexible or ensuring resources are provisoned and destroyed faster.
+Contributions are welcome to improve the code for a provider. This can include making providers more flexible or ensuring resources are deployed and destroyed faster.
 
-For simplicity we request all orchestration code be in Pulumi.
+For simplicity, we request all orchestration codes be in Pulumi.
