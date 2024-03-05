@@ -55,8 +55,10 @@ The default configuration will cost around $0.6 to run and should complete in ar
 
 ```bash
 pulumi stack select dev
-pulumi up
+./run.sh
 ```
+
+This utility script performs a `pulumi up` followed by a `pulumi down`.
 
 ## Implementation
 
