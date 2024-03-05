@@ -34,6 +34,10 @@ To avoid data transfer costs, ensure you query from `us-east-1`.
 
 For an example, see [ClickHouse and The One Trillion Row Challenge](https://clickhouse.com/blog/clickhouse-1-trillion-row-challenge). This queries 1 trillion rows for $0.56 in S3.
 
+## Credit
+
+The original work was inspired by https://github.com/coiled/1trc which in turn was inspired by Gunnar Morling's [one billion row challenge](https://github.com/gunnarmorling/1brc). 
+
 ## Contributing
 
 Contributions are welcome to improve the code for a provider. This can include making providers more flexible or ensuring resources are deployed and destroyed faster.
