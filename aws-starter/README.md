@@ -6,7 +6,7 @@ The code aims to provision and destroy resources as quickly as possible (with th
 
 Users may wish to experiment with different datasets and instance types to minimize query runtime AND/OR cost. We recommend [Vantage](https://instances.vantage.sh) for exploring instance costs.
 
-See [ClickHouse and The One Trillion Row Challenge](https://clickhouse.com/blog/clickhouse-1-trillion-row-challenge) for original blog with further details.
+See [ClickHouse and The One Trillion Row Challenge](https://clickhouse.com/blog/clickhouse-1-trillion-row-challenge) for an original blog with further details.
 
 ## Dependencies
 
@@ -63,16 +63,16 @@ pulumi up
 Pulumi code deploys the following to the configured region and zone:
 
 1. A VPC with CIDR block `10.0.0.0/16`
-2. A subnet with thin the above VPC for all instances
-3. An internet gateway so all instance have external access - needed to install ClickHouse.
+2. A subnet with the above VPC for all instances
+3. An internet gateway so all instances have external access - needed to install ClickHouse.
 4. A route table so instances can communicate and use the gateway
 5. A security group that allows:
-   - Port 22 for SSH from the requesters IP address. 
-   - Port 8123 is also opened (HTTP) to allow queries to be run from the requesters IP address. Note ClickHouse password is configurable.
+   - Port 22 for SSH from the requester's IP address. 
+   - Port 8123 is also opened (HTTP) to allow queries to be run from the requester's IP address. Note: ClickHouse password is configurable.
    - All traffic between instances on all ports
    - All external outbound traffic is allowed.
-   These loose security rules are permitted as the instances should be available for minutes even on 1 trillion row datasets.
+   These loose security rules are permitted as the instances should be available for minutes, even on datasets with 1 trillion rows.
 6. The requested number of spot instances with a `gp3` 20GiB disk.
-7. A [custom resource provider](./query.py) handles the querying of ClickHouse once spot instance are deployed and the ClickHouse cluster has formed.
+7. A [custom resource provider](./query.py) handles the querying of ClickHouse once spot instances are deployed and the ClickHouse cluster has formed.
 
 The code will generate configurations for the number of specified nodes under `./tmp`.
