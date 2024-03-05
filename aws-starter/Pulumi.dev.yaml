@@ -4,12 +4,12 @@ config:
   1trc:instance_type: "c7g.12xlarge"
   1trc:number_instances: 8
   # this must exist as a key-pair in AWS
-  1trc:key_name: "dalem"
-  # change
+  1trc:key_name: "<your_key_name>"
+  # change as required
   1trc:cluster_password: "clickhouse_admin"
   # AMD ami (us-east-1)
   1trc:ami: "ami-05d47d29a4c2d19e1"
   # Intel AMI (us-east-1)
   # 1trc:ami: "ami-0c7217cdde317cfec"
-  # modify for your keys
-  1trc:query: "SELECT station, min(measure), max(measure), round(avg(measure), 2) FROM s3Cluster('default','https://clickhouse-1trc.s3.us-east-1.amazonaws.com/1trc/measurements-*.parquet', '<AWS_ACCESS_KEY_ID>', '<AWS_SECRET_ACCESS_KEY>') GROUP BY station ORDER BY station ASC SETTINGS max_download_buffer_size = 52428800, max_threads=128"
+  # modify for your query
+  1trc:query: "SELECT station, min(measure), max(measure), round(avg(measure), 2) FROM s3Cluster('default','https://coiled-datasets-rp.s3.us-east-1.amazonaws.com/1trc/measurements-*.parquet', '<AWS_ACCESS_KEY_ID>', '<AWS_SECRET_ACCESS_KEY>', headers('x-amz-request-payer' = 'requester')) GROUP BY station ORDER BY station ASC SETTINGS max_download_buffer_size = 52428800, max_threads=128"
