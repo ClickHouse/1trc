@@ -11,12 +11,16 @@ See [ClickHouse and The One Trillion Row Challenge](https://clickhouse.com/blog/
 ## Dependencies
 
 - [Pulumi](https://www.pulumi.com/docs/install/) >= v3.107.0
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- Virtual Environment for python with `conda` or `pyenv`.
+
 
 ## Configuration
 
 Currently single configuration (but we may create more stacks in the future).
 
 `Pulumi.dev.yaml`
+
 ```yaml
 config:
   aws:region: us-east-1
@@ -40,20 +44,22 @@ By default, this queries a trillion row dataset `https://coiled-datasets-rp.s3.u
 To achieve this, it:
 
 - Deploys infrastructure to `us-east-1` to avoid data transfer charges from requester pays.
-- Uses 8 * `c7g.12xlarge` (ARM) in `us-east-1b` as these were shown to be cost-effective during initial testing. See [here](https://clickhouse.com/blog/clickhouse-1-trillion-row-challenge).
+- Uses 8 \* `c7g.12xlarge` (ARM) in `us-east-1b` as these were shown to be cost-effective during initial testing. See [here](https://clickhouse.com/blog/clickhouse-1-trillion-row-challenge).
 - Requires an AWS key pair to be configured. This will be used to make instances available.
 - Uses AMI `ami-05d47d29a4c2d19e1` - for Ubuntu for ARM.
 
 Users can either add stacks or change the above configuration.
 
-**Important: Ensure you modify the `1trc:query` to include the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` with which you want to query**
+Ensure you have an AWS EC2 key pair configured. This is required to log in and install ClickHouse on the EC2 instances. For more information, see [Create a key pair for your Amazon EC2 instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html)
 
+**Important: Ensure you modify the `1trc:query` to include the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` with which you want to query**
 
 The default configuration will cost around $0.6 to run and should complete in around 500 seconds.
 
 ## Deploying
 
 ```bash
+# This need to be run from the aws-starter directory
 pulumi stack select dev
 ./run.sh
 ```
@@ -69,11 +75,11 @@ Pulumi code deploys the following to the configured region and zone:
 3. An internet gateway so all instances have external access - needed to install ClickHouse.
 4. A route table so instances can communicate and use the gateway
 5. A security group that allows:
-   - Port 22 for SSH from the requester's IP address. 
+   - Port 22 for SSH from the requester's IP address.
    - Port 8123 is also opened (HTTP) to allow queries to be run from the requester's IP address. Note: ClickHouse password is configurable.
    - All traffic between instances on all ports
    - All external outbound traffic is allowed.
-   These loose security rules are permitted as the instances should be available for minutes, even on datasets with 1 trillion rows.
+     These loose security rules are permitted as the instances should be available for minutes, even on datasets with 1 trillion rows.
 6. The requested number of spot instances with a `gp3` 20GiB disk.
 7. A [custom resource provider](./query.py) handles the querying of ClickHouse once spot instances are deployed and the ClickHouse cluster has formed.
 
