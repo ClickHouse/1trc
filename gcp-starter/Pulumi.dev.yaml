@@ -1,0 +1,12 @@
+config:
+  gcp:region: us-east4
+  gcp:project: <your-gcp-project-id>
+  1trc:zone: us-east4-a
+  1trc:instance_type: "c4a-highcpu-72"
+  1trc:number_instances: 5
+  # change as required
+  1trc:cluster_password: "clickhouse_admin"
+  # Ubuntu Minimal 24.04 LTS ARM64 image
+  1trc:image: "ubuntu-minimal-2404-lts-arm64"
+  # modify for your query - GCS is read with the instance service account via GCP OAuth
+  1trc:query: "SELECT station, min(measure), max(measure), round(avg(measure), 2) FROM s3Cluster('default','https://storage.googleapis.com/<your-bucket>/1trc/measurements-*.parquet') GROUP BY station ORDER BY station ASC SETTINGS max_download_buffer_size = 52428800, max_threads=128, s3_allow_server_credentials_in_user_queries=1"
